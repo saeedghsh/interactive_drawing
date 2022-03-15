@@ -1,10 +1,29 @@
-from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Callable
 import matplotlib.pyplot as pyplot
 import numpy
 
 
-@dataclass
+def normalize(value: float, interval: Tuple[float, float]) -> float:
+    """given a value from the interval, normalize it to [0, 1]
+
+    it is opposit to \"map_to_interval\"
+    map_to_interval(normalize(v, (min, max)), (min, max)) == v
+    """
+    assert interval[0] <= value <= interval[1], "value must be in interval"
+    return (value - interval[0]) / (interval[1] - interval[0])
+
+
+def map_to_interval(value: float, interval: Tuple[float, float]) -> float:
+    """given a value between [0, 1], map it to the interval
+
+    it is opposite of the \"normalize\"
+    map_to_interval(normalize(v, (min, max)), (min, max)) == v
+    """
+    assert interval[0] <= interval[1], "wrong interval"
+    assert 0 <= value <= 1, "value must be in [0, 1]"
+    return value * (interval[1] - interval[0]) + interval[0]
+
+
 class Square:
     x_min: float = 0.0
     x_max: float = 1.0
@@ -62,90 +81,40 @@ class Square:
             color=color,
         )
 
-    def distance_to_hit_boundary(
-        self, X: numpy.ndarray, Y: numpy.ndarray, angle: float
-    ) -> numpy.ndarray:
-        """distance from the each point (x, y) given the angle until the
-        boundary of the sqaure
-
-        """
-        # TODO: this only works for a single angle for all the lines
-        #       meaning that if we want to have varying angles withing
-        #       one square, it won't work
-
-        # TODO: this isn't very readable, can you simplify or add
-        #       description?
-
-        if numpy.cos(angle) == 0:
-            distances = self.y_max - Y
-        elif numpy.sin(angle) == 0:
-            distances = self.x_max - X
-        else:
-            if 0 <= angle <= numpy.pi / 2:
-                distances = numpy.stack(
-                    [
-                        numpy.abs((self.x_max - X) / numpy.cos(angle)),
-                        numpy.abs((self.y_max - Y) / numpy.sin(angle)),
-                    ],
-                    axis=1,
-                ).min(axis=1)
-            elif -numpy.pi / 2 <= angle < 0:
-                distances = numpy.stack(
-                    [
-                        numpy.abs((self.x_max - X) / numpy.cos(angle)),
-                        numpy.abs((self.y_min - Y) / numpy.sin(angle)),
-                    ],
-                    axis=1,
-                ).min(axis=1)
-            elif numpy.pi / 2 < angle <= numpy.pi:
-                distances = numpy.stack(
-                    [
-                        numpy.abs((self.x_min - X) / numpy.cos(angle)),
-                        numpy.abs((self.y_max - Y) / numpy.sin(angle)),
-                    ],
-                    axis=1,
-                ).min(axis=1)
-            elif -numpy.pi <= angle < -numpy.pi / 2:
-                distances = numpy.stack(
-                    [
-                        numpy.abs((self.x_min - X) / numpy.cos(angle)),
-                        numpy.abs((self.y_min - Y) / numpy.sin(angle)),
-                    ],
-                    axis=1,
-                ).min(axis=1)
-        return distances
-
-    def inside_lines_1(
-        self, count: int, angle: float
-    ) -> Tuple[numpy.ndarray, numpy.ndarray]:
+    def inside_lines(self, count: int, angle: float) -> numpy.ndarray:
         """
         * all lines have the same angle
         * the x-y of starting points are uniformly distributed
         * the ending points goes all the way to the border of boundary
         """
+        # Get random starting points for inside lines
         starts_x = numpy.random.uniform(low=self.x_min, high=self.x_max, size=count)
         starts_y = numpy.random.uniform(low=self.y_min, high=self.y_max, size=count)
-        lengths = self.distance_to_hit_boundary(starts_x, starts_y, angle)
+
+        # Calculate the length of each line until it hits a boundary
+        if numpy.cos(angle) >= 0:
+            border_x = self.x_max  # angle shooting to the right
+        else:
+            border_x = self.x_min  # angle shooting to the left
+        if numpy.sin(angle) >= 0:
+            border_y = self.y_max  # angle shooting up
+        else:
+            border_y = self.y_min  # angle shooting down
+        #  we don't have to worry about divion by zero when cos(angle)
+        #  or sin(angle) are zero, because they can only shoot up to
+        #  +inf and we are interested in min values
+        lengths = numpy.stack(
+            [
+                numpy.abs((border_x - starts_x) / numpy.cos(angle)),
+                numpy.abs((border_y - starts_y) / numpy.sin(angle)),
+            ],
+            axis=1,
+        ).min(axis=1)
+
+        # Compute the ending point of each line
         ends_x = starts_x + lengths * numpy.cos(angle)
         ends_y = starts_y + lengths * numpy.sin(angle)
-        return starts_x, starts_y, ends_x, ends_y
 
-    def draw_inside_lines(
-        self,
-        axis: pyplot.Axes,
-        count: int,
-        angle: float,
-        line_width: float = 0.5,
-        line_style: str = "solid",
-        marker: str = "",
-        color: str = "k",
-    ) -> None:
-        """"""
-        # TODO: Make the drawing function generic an dindependant of
-        #       the line drawing
-        starts_x, starts_y, ends_x, ends_y = self.inside_lines_1(
-            count=count, angle=angle
-        )
         # in order to prevent pyplot from drawing a line in between
         # two points, put a pair of [nan, nan] between them:
         # [[p1x, p1y], [p2x, p2y], [nan, nan], [p3x, p3y],...]
@@ -154,150 +123,106 @@ class Square:
         points = numpy.stack(
             [starts_x, starts_y, ends_x, ends_y, nans, nans], axis=1
         ).reshape((count * 3, 2))
-        axis.plot(
-            points[:, 0],
-            points[:, 1],
-            linewidth=line_width,
-            linestyle=line_style,
-            marker=marker,
-            color=color,
-        )
+        return points
 
 
-def normalize(value: float, interval: Tuple[float, float]) -> float:
-    """given a value from the interval, normalize it to [0, 1]
-
-    it is opposit to \"map_to_interval\"
-    map_to_interval(normalize(v, (min, max)), (min, max)) == v
-    """
-    assert interval[0] <= value <= interval[1], "value must be in interval"
-    return (value - interval[0]) / (interval[1] - interval[0])
-
-
-def map_to_interval(value: float, interval: Tuple[float, float]) -> float:
-    """given a value between [0, 1], map it to the interval
-
-    it is opposite of the \"normalize\"
-    map_to_interval(normalize(v, (min, max)), (min, max)) == v
-    """
-    assert interval[0] <= interval[1], "wrong interval"
-    assert 0 <= value <= 1, "value must be in [0, 1]"
-    return value * (interval[1] - interval[0]) + interval[0]
-
-
-# TODO: turn the big picture drawing (examples) into functions
-
-if 0:  # examples_1
+def draw(
+    x_range: Tuple[int, int],
+    y_range: Tuple[int, int],
+    count_range: Tuple[int, int],
+    get_distance_to_origin_range: Callable,
+    scale: Callable,
+    translation: Callable,
+) -> None:
+    distance_to_origin_range = get_distance_to_origin_range(x_range, y_range)
     figure, axis = pyplot.subplots(nrows=1, ncols=1, sharex=True, figsize=(10, 10))
-    x_range = (0, 20)
-    y_range = (0, 20)
-    distance_to_origin_range = (
+    points = list()
+    for x in range(*x_range):
+        for y in range(*y_range):
+            distance_to_origin = numpy.sqrt(x ** 2 + y ** 2)
+            count_normalized = normalize(
+                value=distance_to_origin, interval=distance_to_origin_range
+            )
+            count = int(map_to_interval(value=count_normalized, interval=count_range))
+            angle = numpy.arctan2(y, x)
+            square = Square(scale=scale(x, y), translation=translation(x, y))
+            points += [
+                square.inside_lines(count, angle),
+                numpy.array([[numpy.nan, numpy.nan]]),
+            ]
+            square.draw_border(axis=axis)
+    points = numpy.concatenate(points)
+    axis.plot(
+        points[:, 0],
+        points[:, 1],
+        linewidth=0.5,
+        linestyle="solid",
+        marker="",
+        color="k",
+    )
+    pyplot.axis("equal")
+    pyplot.axis("off")
+    pyplot.tight_layout()
+    pyplot.show()
+
+
+def get_distance_to_origin_range(
+    x_range: Tuple[int, int], y_range: Tuple[int, int]
+) -> Tuple[int, int]:
+    return (
         numpy.sqrt(x_range[0] ** 2 + y_range[0] ** 2),
         numpy.sqrt(x_range[1] ** 2 + y_range[1] ** 2),
     )
-    count_range = (0, 150)
-    for x in range(*x_range):
-        for y in range(*y_range):
-            distance_to_origin = numpy.sqrt(x ** 2 + y ** 2)
-            count_normalized = normalize(
-                value=distance_to_origin, interval=distance_to_origin_range
-            )
-            count = int(map_to_interval(value=count_normalized, interval=count_range))
-            angle = numpy.arctan2(y, x)
-            if x == 0 and y == 0:
-                angle = numpy.deg2rad(45)
-            square = Square(translation=(x, y))
-            square.draw_border(axis=axis)
-            square.draw_inside_lines(axis=axis, count=count, angle=angle)
-    pyplot.axis("equal")
-    pyplot.axis("off")
-    pyplot.tight_layout()
-    pyplot.show()
 
-if 0:  # examples_2
-    figure, axis = pyplot.subplots(nrows=1, ncols=1, sharex=True, figsize=(10, 10))
-    x_range = (0, 5)
-    y_range = (0, 5)
-    distance_to_origin_range = (
-        numpy.sqrt(x_range[0] ** 2 + y_range[0] ** 2),
-        numpy.sqrt(x_range[1] ** 2 + y_range[1] ** 2),
+
+#  # examlple 1
+draw(
+    x_range=(0, 20),
+    y_range=(0, 20),
+    count_range=(0, 150),
+    get_distance_to_origin_range=get_distance_to_origin_range,
+    scale=lambda x, y: 1,
+    translation=lambda x, y: (x, y),
+)
+
+
+#  # examples 2
+draw(
+    x_range=(0, 5),
+    y_range=(0, 5),
+    count_range=(0, 150),
+    get_distance_to_origin_range=get_distance_to_origin_range,
+    scale=lambda x, y: 1 / (numpy.sqrt(x ** 2 + y ** 2) + 0.2),
+    translation=lambda x, y: (x, y),
+)
+
+
+#  # examples 3 -- this was the one that did not draw grid
+draw(
+    x_range=(0, 10),
+    y_range=(0, 10),
+    count_range=(0, 100),
+    get_distance_to_origin_range=get_distance_to_origin_range,
+    scale=lambda x, y: 1,
+    translation=lambda x, y: (x, y),
+)
+
+
+#  # examples 4
+def get_distance_to_origin_range(
+    x_range: Tuple[int, int], y_range: Tuple[int, int]
+) -> Tuple[int, int]:
+    return (
+        0,
+        numpy.sqrt(numpy.abs(x_range).max() ** 2 + numpy.abs(y_range).max() ** 2),
     )
-    count_range = (0, 150)
-    for x in range(*x_range):
-        for y in range(*y_range):
-            if x == y == 0:
-                continue
-            distance_to_origin = numpy.sqrt(x ** 2 + y ** 2)
-            count_normalized = normalize(
-                value=distance_to_origin, interval=distance_to_origin_range
-            )
-            count = int(map_to_interval(value=count_normalized, interval=count_range))
-            angle = numpy.arctan2(y, x)
-            if x == 0 and y == 0:
-                angle = numpy.deg2rad(45)
-            square = Square(scale=(1 / (distance_to_origin + 0.2)), translation=(x, y))
-            square.draw_border(axis=axis)
-            square.draw_inside_lines(axis=axis, count=count, angle=angle)
-    pyplot.axis("equal")
-    pyplot.axis("off")
-    pyplot.tight_layout()
-    pyplot.show()
 
-if 0:  # examples_3
-    figure, axis = pyplot.subplots(nrows=1, ncols=1, sharex=True, figsize=(10, 10))
-    x_range = (0, 10)
-    y_range = (0, 10)
-    distance_to_origin_range = (
-        numpy.sqrt(x_range[0] ** 2 + y_range[0] ** 2),
-        numpy.sqrt(x_range[1] ** 2 + y_range[1] ** 2),
-    )
-    count_range = (0, 100)
-    for x in range(*x_range):
-        for y in range(*y_range):
-            if x == y == 0:
-                continue
-            distance_to_origin = numpy.sqrt(x ** 2 + y ** 2)
-            count_normalized = normalize(
-                value=distance_to_origin, interval=distance_to_origin_range
-            )
-            count = int(map_to_interval(value=count_normalized, interval=count_range))
-            angle = numpy.arctan2(y, x)
-            if x == 0 and y == 0:
-                angle = numpy.deg2rad(45)
-            square.draw_border(axis=axis)
-            square.draw_inside_lines(axis=axis, count=count, angle=angle)
-    pyplot.axis("equal")
-    pyplot.axis("off")
-    pyplot.tight_layout()
-    pyplot.show()
 
-if 0:  # examples_4
-    figure, axis = pyplot.subplots(nrows=1, ncols=1, sharex=True, figsize=(10, 10))
-    x_range = (-9, 10)
-    y_range = (-9, 10)
-    distance_to_origin_range = (
-        0,  # numpy.sqrt(x_range[0]**2 + y_range[0]**2),
-        numpy.sqrt(x_range[1] ** 2 + y_range[1] ** 2),
-    )
-    count_range = (0, 150)
-    for x in range(*x_range):
-        for y in range(*y_range):
-            distance_to_origin = numpy.sqrt(x ** 2 + y ** 2)
-            count_normalized = normalize(
-                value=distance_to_origin, interval=distance_to_origin_range
-            )
-            count = int(map_to_interval(value=count_normalized, interval=count_range))
-            # count = 50
-            angle = numpy.arctan2(y, x)
-            if x == 0 and y == 0:
-                count = 0
-                angle = numpy.deg2rad(45)
-            square = Square(translation=(x, y))
-            square.draw_border(axis=axis)
-            square.draw_inside_lines(axis=axis, count=count, angle=angle)
-    pyplot.axis("equal")
-    pyplot.axis("off")
-    pyplot.tight_layout()
-    pyplot.show()
-
-# TODO: an interactive mode where the "origin" shifts with the mouse curser
+draw(
+    x_range=(-9, 10),
+    y_range=(-9, 10),
+    count_range=(0, 150),
+    get_distance_to_origin_range=get_distance_to_origin_range,
+    scale=lambda x, y: 1,
+    translation=lambda x, y: (x, y),
+)
