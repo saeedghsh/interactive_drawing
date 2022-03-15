@@ -1,27 +1,7 @@
 from typing import Tuple, Callable
 import matplotlib.pyplot as pyplot
 import numpy
-
-
-def normalize(value: float, interval: Tuple[float, float]) -> float:
-    """given a value from the interval, normalize it to [0, 1]
-
-    it is opposit to \"map_to_interval\"
-    map_to_interval(normalize(v, (min, max)), (min, max)) == v
-    """
-    assert interval[0] <= value <= interval[1], "value must be in interval"
-    return (value - interval[0]) / (interval[1] - interval[0])
-
-
-def map_to_interval(value: float, interval: Tuple[float, float]) -> float:
-    """given a value between [0, 1], map it to the interval
-
-    it is opposite of the \"normalize\"
-    map_to_interval(normalize(v, (min, max)), (min, max)) == v
-    """
-    assert interval[0] <= interval[1], "wrong interval"
-    assert 0 <= value <= 1, "value must be in [0, 1]"
-    return value * (interval[1] - interval[0]) + interval[0]
+import common
 
 
 class Square:
@@ -140,10 +120,12 @@ def draw(
     for x in range(*x_range):
         for y in range(*y_range):
             distance_to_origin = numpy.sqrt(x ** 2 + y ** 2)
-            count_normalized = normalize(
+            count_normalized = common.normalize(
                 value=distance_to_origin, interval=distance_to_origin_range
             )
-            count = int(map_to_interval(value=count_normalized, interval=count_range))
+            count = int(
+                common.map_to_interval(value=count_normalized, interval=count_range)
+            )
             angle = numpy.arctan2(y, x)
             square = Square(scale=scale(x, y), translation=translation(x, y))
             points += [
