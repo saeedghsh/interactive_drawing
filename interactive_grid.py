@@ -1,7 +1,7 @@
 from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
-from common import normalize, map_to_interval
+from common import normalize_to_unit_interval, scale_to_custom_interval
 
 
 def lines_in_grid_cells(
@@ -26,13 +26,12 @@ def lines_in_grid_cells(
     distance_to_center = np.sqrt(
         (cells_tx - center[0]) ** 2 + (cells_ty - center[1]) ** 2
     )
-    count_normalized = normalize(
-        value=distance_to_center,
+    count_normalized = normalize_to_unit_interval(
+        values=distance_to_center,
         interval=distance_to_center_range,
     )
-    counts = map_to_interval(
-        value=count_normalized,
-        interval=count_range,
+    counts = scale_to_custom_interval(
+        values=count_normalized, interval=count_range
     ).astype(int)
 
     # Compute the angle of lines for each grid cell.

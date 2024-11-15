@@ -1,7 +1,7 @@
 from typing import Tuple, Callable
 import matplotlib.pyplot as plt
 import numpy as np
-from common import normalize, map_to_interval
+from common import normalize_to_unit_interval, scale_to_custom_interval
 
 
 class Square:
@@ -120,10 +120,12 @@ def draw(
     for x in range(*x_range):
         for y in range(*y_range):
             distance_to_origin = np.sqrt(x**2 + y**2)
-            count_normalized = normalize(
-                value=distance_to_origin, interval=distance_to_origin_range
+            count_normalized = normalize_to_unit_interval(
+                values=distance_to_origin, interval=distance_to_origin_range
             )
-            count = int(map_to_interval(value=count_normalized, interval=count_range))
+            count = int(
+                scale_to_custom_interval(values=count_normalized, interval=count_range)
+            )
             angle = np.arctan2(y, x)
             square = Square(scale=scale(x, y), translation=translation(x, y))
             points += [
