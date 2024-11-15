@@ -1,7 +1,7 @@
 from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
-from common import normalize_to_unit_interval, scale_to_custom_interval
+from libs.common import normalize_to_unit_interval, scale_to_custom_interval
 
 
 def lines_in_grid_cells(
