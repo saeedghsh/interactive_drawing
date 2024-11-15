@@ -42,7 +42,7 @@ def lines_in_grid_cells(
     start_points_x = np.random.uniform(low=0, high=1, size=counts.sum())
     start_points_y = np.random.uniform(low=0, high=1, size=counts.sum())
 
-    # Set the boundaries for the grid cell. At the begining, keep all
+    # Set the boundaries for the grid cell. At the beginning, keep all
     # the grid cells at the same position. Will move the end result
     # instead.
     cells_x_min = np.zeros(grid_width * grid_height).repeat(counts)
@@ -58,7 +58,7 @@ def lines_in_grid_cells(
     # To that end, first figure out which border each line is going to hit.
     border_x = np.where(np.cos(angles) >= 0, cells_x_max, cells_x_min)
     border_y = np.where(np.sin(angles) >= 0, cells_y_max, cells_y_min)
-    #  We don't have to worry about divion by zero when cos(angle)
+    #  We don't have to worry about division by zero when cos(angle)
     #  or sin(angle) are zero, because they can only shoot up to
     #  +inf and we are interested in min values.
     lengths = np.stack(
@@ -73,7 +73,7 @@ def lines_in_grid_cells(
     end_points_x = start_points_x + lengths * np.cos(angles)
     end_points_y = start_points_y + lengths * np.sin(angles)
 
-    # Translate lines accroding to the grid cell they belong to.
+    # Translate lines according to the grid cell they belong to.
     start_points_x += cells_tx
     start_points_y += cells_ty
     end_points_x += cells_tx
