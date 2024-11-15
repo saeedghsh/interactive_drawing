@@ -6,7 +6,7 @@
 * [Interesting visualization by saharan](https://oimo.io/works)
 
 ## License
-Distributed with a GNU GENERAL PUBLIC LICENSE; see [LICENSE](https://github.com/saeedghsh/transformation-playground/blob/master/LICENSE).
+Distributed with a GNU GENERAL PUBLIC LICENSE; see [LICENSE](https://github.com/saeedghsh/interactive_drawing/blob/master/LICENSE).
 ```
 Copyright (C) Saeed Gholami Shahbandi
 ```
