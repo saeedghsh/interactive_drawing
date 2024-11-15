@@ -1,7 +1,7 @@
 from typing import Tuple
-import matplotlib.pyplot as pyplot
-import numpy
-import common
+import matplotlib.pyplot as plt
+import numpy as np
+from common import normalize, map_to_interval
 
 
 def lines_in_grid_cells(
@@ -14,41 +14,41 @@ def lines_in_grid_cells(
     grid_height = y_range[1] - y_range[0]
 
     # Translation of each grid cell.
-    cells_tx, cells_ty = numpy.meshgrid(numpy.arange(*x_range), numpy.arange(*y_range))
+    cells_tx, cells_ty = np.meshgrid(np.arange(*x_range), np.arange(*y_range))
     cells_tx = cells_tx.flatten()
     cells_ty = cells_ty.flatten()
 
     # Compute the line counts per grid cell.
     distance_to_center_range = (
         0,
-        numpy.sqrt(grid_width ** 2 + grid_height ** 2),
+        np.sqrt(grid_width**2 + grid_height**2),
     )
-    distance_to_center = numpy.sqrt(
+    distance_to_center = np.sqrt(
         (cells_tx - center[0]) ** 2 + (cells_ty - center[1]) ** 2
     )
-    count_normalized = common.normalize(
+    count_normalized = normalize(
         value=distance_to_center,
         interval=distance_to_center_range,
     )
-    counts = common.map_to_interval(
+    counts = map_to_interval(
         value=count_normalized,
         interval=count_range,
     ).astype(int)
 
     # Compute the angle of lines for each grid cell.
-    angles = numpy.arctan2(cells_ty - center[1], cells_tx - center[0])
+    angles = np.arctan2(cells_ty - center[1], cells_tx - center[0])
 
     # Get random starting points for all the lines in all the cells.
-    start_points_x = numpy.random.uniform(low=0, high=1, size=counts.sum())
-    start_points_y = numpy.random.uniform(low=0, high=1, size=counts.sum())
+    start_points_x = np.random.uniform(low=0, high=1, size=counts.sum())
+    start_points_y = np.random.uniform(low=0, high=1, size=counts.sum())
 
     # Set the boundaries for the grid cell. At the begining, keep all
     # the grid cells at the same position. Will move the end result
     # instead.
-    cells_x_min = numpy.zeros(grid_width * grid_height).repeat(counts)
-    cells_x_max = numpy.ones(grid_width * grid_height).repeat(counts)
-    cells_y_min = numpy.zeros(grid_width * grid_height).repeat(counts)
-    cells_y_max = numpy.ones(grid_width * grid_height).repeat(counts)
+    cells_x_min = np.zeros(grid_width * grid_height).repeat(counts)
+    cells_x_max = np.ones(grid_width * grid_height).repeat(counts)
+    cells_y_min = np.zeros(grid_width * grid_height).repeat(counts)
+    cells_y_max = np.ones(grid_width * grid_height).repeat(counts)
 
     cells_tx = cells_tx.repeat(counts)
     cells_ty = cells_ty.repeat(counts)
@@ -56,22 +56,22 @@ def lines_in_grid_cells(
 
     # Calculate the length of each line until it hits a boundary.
     # To that end, first figure out which border each line is going to hit.
-    border_x = numpy.where(numpy.cos(angles) >= 0, cells_x_max, cells_x_min)
-    border_y = numpy.where(numpy.sin(angles) >= 0, cells_y_max, cells_y_min)
+    border_x = np.where(np.cos(angles) >= 0, cells_x_max, cells_x_min)
+    border_y = np.where(np.sin(angles) >= 0, cells_y_max, cells_y_min)
     #  We don't have to worry about divion by zero when cos(angle)
     #  or sin(angle) are zero, because they can only shoot up to
     #  +inf and we are interested in min values.
-    lengths = numpy.stack(
+    lengths = np.stack(
         [
-            numpy.abs((border_x - start_points_x) / numpy.cos(angles)),
-            numpy.abs((border_y - start_points_y) / numpy.sin(angles)),
+            np.abs((border_x - start_points_x) / np.cos(angles)),
+            np.abs((border_y - start_points_y) / np.sin(angles)),
         ],
         axis=1,
     ).min(axis=1)
 
     # Compute the ending point of each line.
-    end_points_x = start_points_x + lengths * numpy.cos(angles)
-    end_points_y = start_points_y + lengths * numpy.sin(angles)
+    end_points_x = start_points_x + lengths * np.cos(angles)
+    end_points_y = start_points_y + lengths * np.sin(angles)
 
     # Translate lines accroding to the grid cell they belong to.
     start_points_x += cells_tx
@@ -80,12 +80,12 @@ def lines_in_grid_cells(
     end_points_y += cells_ty
 
     # Compile points to return.
-    # Insert NaNs in between points. in order to prevent pyplot from
+    # Insert NaNs in between points. in order to prevent plt from
     # drawing a line in between two points, put a pair of [nan, nan]
     # between them:
     # [[p1x, p1y], [p2x, p2y], [nan, nan], [p3x, p3y],...]
-    nans = numpy.full(counts.sum(), numpy.nan)
-    points = numpy.stack(
+    nans = np.full(counts.sum(), np.nan)
+    points = np.stack(
         [
             start_points_x,
             start_points_y,
@@ -102,7 +102,7 @@ def lines_in_grid_cells(
 
 def on_move(event):
     if event.inaxes:
-        center = numpy.floor([event.xdata, event.ydata]).astype(int)
+        center = np.floor([event.xdata, event.ydata]).astype(int)
         axis = event.inaxes
         axis.cla()  # how the hell can you be the most expensive? :(
         points = lines_in_grid_cells(center=center)
@@ -114,13 +114,13 @@ def on_move(event):
             marker="",
             color="k",
         )
-        pyplot.axis("equal")
-        pyplot.axis("off")
-        pyplot.tight_layout()
+        plt.axis("equal")
+        plt.axis("off")
+        plt.tight_layout()
         figure.canvas.draw_idle()
 
 
-figure, axis = pyplot.subplots(nrows=1, ncols=1, sharex=True, figsize=(10, 10))
+figure, axis = plt.subplots(nrows=1, ncols=1, sharex=True, figsize=(10, 10))
 points = lines_in_grid_cells()
 axis.plot(
     points[:, 0],
@@ -130,8 +130,8 @@ axis.plot(
     marker="",
     color="k",
 )
-pyplot.axis("equal")
-pyplot.axis("off")
-pyplot.tight_layout()
-pyplot.connect("motion_notify_event", on_move)
-pyplot.show()
+plt.axis("equal")
+plt.axis("off")
+plt.tight_layout()
+plt.connect("motion_notify_event", on_move)
+plt.show()
