@@ -1,146 +1,138 @@
-"""An interactive visualization where drawing changes with mouse curser position"""
+"""Interactive visualization with pygame.
 
-from typing import Tuple
-import matplotlib.pyplot as plt
-import numpy as np
-from libs.common import normalize_to_unit_interval, scale_to_custom_interval
+A distribution of line segments that are all aligned towards the mouse position.
 
+Discrete Mode.
+"""
 
-X_RANGE = (-4, 5)
-Y_RANGE = (-4, 5)
-COUNT_RANGE = (0, 150)
+# pylint: disable=no-name-in-module, no-member, c-extension-no-member
 
-LINEWIDTH = 0.5
-LINESTYLE = "solid"
-MARKER = ""
-COLOR = "k"
+from typing import Sequence
+import argparse
+import sys
+import math
+import random
+import pygame
+import pygame.locals
 
-
-def _grid_size(x_range: Tuple[int, int], y_range: Tuple[int, int]) -> Tuple[int, int]:
-    grid_width = x_range[1] - x_range[0]
-    grid_height = y_range[1] - y_range[0]
-    return grid_width, grid_height
+from libs.colors import parse_color, BLACK, WHITE, Color
+from libs.utils import print_output
 
 
-def _construct_grid_cells():
-    cells_tx, cells_ty = np.meshgrid(np.arange(*X_RANGE), np.arange(*Y_RANGE))
-    cells_tx = cells_tx.flatten()
-    cells_ty = cells_ty.flatten()
-    return cells_tx, cells_ty
+class Canvas:  # pylint: disable=too-few-public-methods
+    """Represents the basis for drawing on the pygame.surface.Surface."""
+
+    def __init__(self, width, height, cell_size, max_lines):
+        self.width = width
+        self.height = height
+        self.cell_size = cell_size
+        self.max_lines = max_lines
+        self.rows = self.height // self.cell_size
+        self.cols = self.width // self.cell_size
+
+    def draw(
+        self, surface: pygame.surface.Surface, mouse_x: int, mouse_y: int, color: Color
+    ):  # pylint: disable=too-many-locals
+        """Draws the grid with line segments in each cell, influenced by the mouse position."""
+        # Calculate the center cell based on the mouse position
+        center_col = mouse_x // self.cell_size
+        center_row = mouse_y // self.cell_size
+        for row in range(self.rows):
+            for col in range(self.cols):
+                # Calculate the position of the current cell
+                cell_x = col * self.cell_size
+                cell_y = row * self.cell_size
+                # Calculate the angle from the current cell to the center cell
+                dx = center_col - col
+                dy = center_row - row
+                angle_to_center = math.atan2(dy, dx)
+                # Determine the number of lines based on the distance to the center cell
+                distance = math.sqrt(dx**2 + dy**2)
+                num_lines = min(int(distance * 2), self.max_lines)
+                # Draw random line segments in the cell
+                for _ in range(num_lines):
+                    x1 = cell_x + random.uniform(0, self.cell_size)
+                    y1 = cell_y + random.uniform(0, self.cell_size)
+                    length = random.uniform(5, self.cell_size / 2)
+                    x2 = x1 + length * math.cos(angle_to_center)
+                    y2 = y1 + length * math.sin(angle_to_center)
+                    pygame.draw.line(surface, color, (x1, y1), (x2, y2), 1)
 
 
-def _line_counts_per_cell(grid_width, grid_height, center, cells_tx, cells_ty):
-    distance_to_center_range = (
-        0,
-        np.sqrt(grid_width**2 + grid_height**2),
+class Controller:
+    """Manages the application, including event handling, updating state, and rendering."""
+
+    def __init__(self, canvas):
+        self.canvas = canvas
+        self.running = True
+
+    def handle_events(self):
+        """Handles user input and system events."""
+        for event in pygame.event.get():
+            if event.type == pygame.locals.QUIT:
+                self.running = False
+            elif event.type == pygame.locals.KEYDOWN:
+                if event.key == pygame.locals.K_ESCAPE:
+                    self.running = False
+
+    def update(self):
+        """Updates the Controller state."""
+
+    def render(
+        self,
+        surface: pygame.surface.Surface,
+        background_color: Color,
+        line_color: Color,
+    ):
+        """Renders the game elements on the surface."""
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        surface.fill(background_color)
+        self.canvas.draw(surface, mouse_x, mouse_y, line_color)
+        pygame.display.flip()
+
+
+@print_output(print_func=print)
+def _parse_arguments(argv: Sequence[str]):
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--screen-width", type=int, default=1000)
+    parser.add_argument("--screen-height", type=int, default=1000)
+    parser.add_argument("--grid-size", type=int, default=30)
+    parser.add_argument("--max-lines", type=int, default=30)
+    parser.add_argument("--background-color", type=parse_color, default=WHITE)
+    parser.add_argument("--line-color", type=parse_color, default=BLACK)
+    args = parser.parse_args(argv)
+    return args
+
+
+def _init_pygame():
+    try:
+        pygame.init()
+    except pygame.error as e:
+        print(f"Failed to initialize Pygame: {e}")
+        sys.exit(1)
+
+
+def main(argv: Sequence[str]):
+    """The main function initializes Pygame, sets up the game loop, and handles cleanup."""
+    args = _parse_arguments(argv)
+    _init_pygame()
+
+    screen = pygame.display.set_mode((args.screen_width, args.screen_height))
+    pygame.display.set_caption("Interactive Drawing Grid")
+    clock = pygame.time.Clock()
+    canvas = Canvas(
+        args.screen_width, args.screen_height, args.grid_size, args.max_lines
     )
-    distance_to_center = np.sqrt(
-        (cells_tx - center[0]) ** 2 + (cells_ty - center[1]) ** 2
-    )
-    count_normalized = normalize_to_unit_interval(
-        values=distance_to_center,
-        interval=distance_to_center_range,
-    )
-    counts = scale_to_custom_interval(
-        values=count_normalized, interval=COUNT_RANGE
-    ).astype(int)
-    return counts
+    controller = Controller(canvas)
+
+    while controller.running:
+        controller.handle_events()
+        controller.update()
+        controller.render(screen, args.background_color, args.line_color)
+        clock.tick(50)
+
+    pygame.quit()
 
 
-def _construct_lines(center, counts):
-    grid_width, grid_height = _grid_size(X_RANGE, Y_RANGE)
-    cells_tx, cells_ty = _construct_grid_cells()
-    # Compute the angle of lines for each grid cell.
-    angles = np.arctan2(cells_ty - center[1], cells_tx - center[0])
-    # Get random starting points for all the lines in all the cells.
-    start_points_x = np.random.uniform(low=0, high=1, size=counts.sum())
-    start_points_y = np.random.uniform(low=0, high=1, size=counts.sum())
-    # Set the boundaries for the grid cell. At the beginning, keep all the grid
-    # cells at the same position. Will move the end result instead.
-    cells_x_min = np.zeros(grid_width * grid_height).repeat(counts)
-    cells_x_max = np.ones(grid_width * grid_height).repeat(counts)
-    cells_y_min = np.zeros(grid_width * grid_height).repeat(counts)
-    cells_y_max = np.ones(grid_width * grid_height).repeat(counts)
-    cells_tx = cells_tx.repeat(counts)
-    cells_ty = cells_ty.repeat(counts)
-    angles = angles.repeat(counts)
-    # Calculate the length of each line until it hits a boundary. To that end,
-    # first figure out which border each line is going to hit.
-    border_x = np.where(np.cos(angles) >= 0, cells_x_max, cells_x_min)
-    border_y = np.where(np.sin(angles) >= 0, cells_y_max, cells_y_min)
-    #  We don't have to worry about division by zero when cos(angle) or
-    #  sin(angle) are zero, because they can only shoot up to +inf and we are
-    #  interested in min values.
-    lengths = np.stack(
-        [
-            np.abs((border_x - start_points_x) / np.cos(angles)),
-            np.abs((border_y - start_points_y) / np.sin(angles)),
-        ],
-        axis=1,
-    ).min(axis=1)
-    # Compute the ending point of each line.
-    end_points_x = start_points_x + lengths * np.cos(angles)
-    end_points_y = start_points_y + lengths * np.sin(angles)
-    # Translate lines according to the grid cell they belong to.
-    start_points_x += cells_tx
-    start_points_y += cells_ty
-    end_points_x += cells_tx
-    end_points_y += cells_ty
-    return start_points_x, start_points_y, end_points_x, end_points_y
-
-
-def _lines_in_grid_cells(center: Tuple[int, int]):
-    grid_width, grid_height = _grid_size(X_RANGE, Y_RANGE)
-    cells_tx, cells_ty = _construct_grid_cells()
-    counts = _line_counts_per_cell(grid_width, grid_height, center, cells_tx, cells_ty)
-    start_points_x, start_points_y, end_points_x, end_points_y = _construct_lines(
-        center, counts
-    )
-    # Insert NaNs in between points; in order to prevent plt from drawing a line
-    # in between two points, put a pair of [nan, nan] between them:
-    # [[p1x, p1y], [p2x, p2y], [nan, nan], [p3x, p3y],...]
-    nans = np.full(counts.sum(), np.nan)
-    points = np.stack(
-        [start_points_x, start_points_y, end_points_x, end_points_y, nans, nans],
-        axis=1,
-    ).reshape((counts.sum() * 3, 2))
-
-    return points
-
-
-def _on_move(event):
-    if not event.inaxes:
-        return
-    mouse_position = np.floor([event.xdata, event.ydata]).astype(int)
-    # axis = event.inaxes
-    axis.cla()  # how the hell can you be the most expensive? :(
-    points = _lines_in_grid_cells(center=mouse_position)
-    axis.plot(
-        points[:, 0],
-        points[:, 1],
-        linewidth=LINEWIDTH,
-        linestyle=LINESTYLE,
-        marker=MARKER,
-        color=COLOR,
-    )
-    plt.axis("equal")
-    plt.axis("off")
-    plt.tight_layout()
-    figure.canvas.draw_idle()
-
-
-figure, axis = plt.subplots(nrows=1, ncols=1, sharex=True, figsize=(10, 10))
-initial_points = _lines_in_grid_cells(center=(0, 0))
-axis.plot(
-    initial_points[:, 0],
-    initial_points[:, 1],
-    linewidth=LINEWIDTH,
-    linestyle=LINESTYLE,
-    marker=MARKER,
-    color=COLOR,
-)
-plt.axis("equal")
-plt.axis("off")
-plt.tight_layout()
-plt.connect("motion_notify_event", _on_move)
-plt.show()
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

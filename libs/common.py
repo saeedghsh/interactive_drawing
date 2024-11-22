@@ -1,3 +1,5 @@
+"""Utils to scale values from [0,1] to custom interval and vise versa"""
+
 from typing import Tuple
 import numpy
 
