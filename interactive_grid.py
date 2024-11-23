@@ -10,8 +10,7 @@ Discrete Mode.
 from typing import Sequence
 import argparse
 import sys
-import math
-import random
+import numpy as np
 import pygame
 import pygame.locals
 
@@ -33,30 +32,61 @@ class Canvas:  # pylint: disable=too-few-public-methods
     def draw(
         self, surface: pygame.surface.Surface, mouse_x: int, mouse_y: int, color: Color
     ):  # pylint: disable=too-many-locals
-        """Draws the grid with line segments in each cell, influenced by the mouse position."""
-        # Calculate the center cell based on the mouse position
+        """Draws the line segments influenced by the mouse position.
+
+        The Canvas is assumed a grid.
+        Per grid cell a collection of random line segments are drawn.
+        Number of line segments per grid cell is inversely proportional to distance to mouse.
+        Angle of lines are the same per cell, and computed so that lines are aligned towards mouse.
+        """
+
+        def _tile_along_axis_2(arr):
+            return np.tile(arr[:, :, None], (1, 1, self.max_lines))
+
         center_col = mouse_x // self.cell_size
         center_row = mouse_y // self.cell_size
+
+        shape_3d = (self.rows, self.cols, self.max_lines)
+
+        col_indices, row_indices = np.meshgrid(
+            np.arange(self.cols), np.arange(self.rows)
+        )
+        cell_x = col_indices * self.cell_size
+        cell_y = row_indices * self.cell_size
+        cell_x_tiled = _tile_along_axis_2(cell_x)
+        cell_y_tiled = _tile_along_axis_2(cell_y)
+        random_x = np.random.uniform(0, self.cell_size, size=shape_3d)
+        random_y = np.random.uniform(0, self.cell_size, size=shape_3d)
+        x1 = cell_x_tiled + random_x
+        y1 = cell_y_tiled + random_y
+
+        dx = center_col - col_indices
+        dy = center_row - row_indices
+        angle_to_center = np.arctan2(dy, dx) + np.pi / 4
+        angle_to_center_tiled = _tile_along_axis_2(angle_to_center)
+        random_length = np.random.uniform(5, self.cell_size / 2, size=shape_3d)
+        x2 = x1 + random_length * np.cos(angle_to_center_tiled)
+        y2 = y1 + random_length * np.sin(angle_to_center_tiled)
+
+        distance = np.sqrt(dx**2 + dy**2)
+        num_lines = np.clip(distance.astype(int), None, self.max_lines)
+
         for row in range(self.rows):
             for col in range(self.cols):
-                # Calculate the position of the current cell
-                cell_x = col * self.cell_size
-                cell_y = row * self.cell_size
-                # Calculate the angle from the current cell to the center cell
-                dx = center_col - col
-                dy = center_row - row
-                angle_to_center = math.atan2(dy, dx)
-                # Determine the number of lines based on the distance to the center cell
-                distance = math.sqrt(dx**2 + dy**2)
-                num_lines = min(int(distance * 2), self.max_lines)
-                # Draw random line segments in the cell
-                for _ in range(num_lines):
-                    x1 = cell_x + random.uniform(0, self.cell_size)
-                    y1 = cell_y + random.uniform(0, self.cell_size)
-                    length = random.uniform(5, self.cell_size / 2)
-                    x2 = x1 + length * math.cos(angle_to_center)
-                    y2 = y1 + length * math.sin(angle_to_center)
-                    pygame.draw.line(surface, color, (x1, y1), (x2, y2), 1)
+                n_lines = num_lines[row, col]
+                x1_valid = x1[row, col, :n_lines]
+                y1_valid = y1[row, col, :n_lines]
+                x2_valid = x2[row, col, :n_lines]
+                y2_valid = y2[row, col, :n_lines]
+
+                for line_index in range(n_lines):
+                    pygame.draw.line(
+                        surface,
+                        color,
+                        (x1_valid[line_index], y1_valid[line_index]),
+                        (x2_valid[line_index], y2_valid[line_index]),
+                        1,
+                    )
 
 
 class Controller:
@@ -97,7 +127,7 @@ def _parse_arguments(argv: Sequence[str]):
     parser.add_argument("--screen-width", type=int, default=1000)
     parser.add_argument("--screen-height", type=int, default=1000)
     parser.add_argument("--grid-size", type=int, default=30)
-    parser.add_argument("--max-lines", type=int, default=30)
+    parser.add_argument("--max-lines", type=int, default=60)
     parser.add_argument("--background-color", type=parse_color, default=WHITE)
     parser.add_argument("--line-color", type=parse_color, default=BLACK)
     args = parser.parse_args(argv)
@@ -129,7 +159,7 @@ def main(argv: Sequence[str]):
         controller.handle_events()
         controller.update()
         controller.render(screen, args.background_color, args.line_color)
-        clock.tick(50)
+        clock.tick(100)
 
     pygame.quit()
 
