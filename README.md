@@ -5,7 +5,6 @@
 * [Polyhedra by Robert Webb](https://www.software3d.com/FedSquare.php)
 * [Interesting visualization by saharan](https://oimo.io/works)
 
-
 ## Laundry List
 * [x] [refactor] clean up Game/Grid classes
 * [x] [performance] start with profiling the code as is
@@ -18,8 +17,7 @@
 * [ ] [performance] use `from numba import njit`
 * [ ] [variant] Instead of slider, use a continuous and gradual change of angle
 * [ ] [variant] Instead of mouse curser, use a smooth-random moving point
-
-
+* [ ] [variant] add color
 
 ## License
 Distributed with a GNU GENERAL PUBLIC LICENSE; see [LICENSE](https://github.com/saeedghsh/interactive_drawing/blob/master/LICENSE).
