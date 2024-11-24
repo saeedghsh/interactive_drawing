@@ -7,15 +7,18 @@
 
 
 ## Laundry List
-* [x] refactor, clean up Game/Grid names
-* [x] start with profiling the code as is
+* [x] [refactor] clean up Game/Grid classes
+* [x] [performance] start with profiling the code as is
     ```bash
     python -m cProfile -o profile_output.prof interactive_grid.py
     snakeviz profile_output.prof
     ```
-* [x] use numpy; vectorize, random number generation
-* [ ] use `lru_cache` for the functions that can be cached
-* [ ] use `from numba import njit`
+* [x] [performance] use numpy; vectorize, random number generation
+* [ ] [performance] use `lru_cache` for the functions that can be cached
+* [ ] [performance] use `from numba import njit`
+* [ ] [variant] Instead of slider, use a continuous and gradual change of angle
+* [ ] [variant] Instead of mouse curser, use a smooth-random moving point
+
 
 
 ## License
