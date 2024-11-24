@@ -1,7 +1,7 @@
 """Colors"""
 
-from typing import Tuple, NamedTuple
 import argparse
+from typing import NamedTuple, Tuple
 
 
 class Color(NamedTuple):  # pylint: disable=missing-class-docstring

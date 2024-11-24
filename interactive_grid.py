@@ -7,9 +7,10 @@ Discrete Mode.
 
 # pylint: disable=import-error, no-name-in-module, no-member, c-extension-no-member
 
-from typing import Sequence, Tuple
 import argparse
 import sys
+from typing import Sequence, Tuple
+
 import numpy as np
 import pygame
 import pygame.locals
