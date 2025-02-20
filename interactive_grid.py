@@ -33,13 +33,13 @@ class DrawManager:  # pylint: disable=too-few-public-methods
     def _tile_along_axis_2(arr: np.ndarray, count: int) -> np.ndarray:
         return np.tile(arr[:, :, None], (1, 1, count))
 
-    def _anchor_point_xy_to_rc(self, anchor_point: Tuple[int, int]) -> Tuple[int, int]:
-        anchor_x, anchor_y = anchor_point
-        anchor_row = anchor_y // self._cell_size
-        anchor_col = anchor_x // self._cell_size
-        return anchor_col, anchor_row
+    def _point_xy_to_rc(self, point: Tuple[int, int]) -> Tuple[int, int]:
+        x, y = point
+        row = y // self._cell_size
+        col = x // self._cell_size
+        return row, col
 
-    def _starting_points(
+    def _absolute_starting_points(
         self, col_indices: np.ndarray, row_indices: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
         array_shape_3d = (self._rows, self._cols, self._max_lines)
@@ -84,25 +84,31 @@ class DrawManager:  # pylint: disable=too-few-public-methods
         Number of line segments per grid cell is inversely proportional to distance to mouse.
         Angle of lines are the same per cell, and computed so that lines are aligned towards mouse.
         """
-
+        #
         col_indices, row_indices = np.meshgrid(
             np.arange(self._cols), np.arange(self._rows)
         )
-        x1, y1 = self._starting_points(col_indices, row_indices)
 
-        anchor_col, anchor_row = self._anchor_point_xy_to_rc(anchor_point)
+        # Starting points of all line segments
+        x1, y1 = self._absolute_starting_points(col_indices, row_indices)
+
+        #
+        anchor_row, anchor_col = self._point_xy_to_rc(anchor_point)
         cell_to_anchor_dx = anchor_col - col_indices
         cell_to_anchor_dy = anchor_row - row_indices
 
+        # Ending points of all line segments
         relative_x2, relative_y2 = self._relative_ending_points(
             cell_to_anchor_dx, cell_to_anchor_dy, angle_offset
         )
         x2 = relative_x2 + x1
         y2 = relative_y2 + y1
 
+        # Number of line segments per cell
         distance = np.sqrt(cell_to_anchor_dx**2 + cell_to_anchor_dy**2)
         num_lines = np.clip(distance.astype(int), None, self._max_lines)
 
+        # construct lines
         lines = []
         for row in range(self._rows):
             for col in range(self._cols):
